@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>ShelfScan Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0F172A}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+var e=React.createElement;
+var us=React.useState;
+var ur=React.useRef;
+var AC="#C41E3A";
+var DK="#0F172A";
+var DA="#1E293B";
+var BL="#2563EB";
+var GN="#059669";
+var OR="#D97706";
+var DG="#DC2626";
+var SF="#FFFFFF";
+var BG="#F5F6FA";
+var SC="#64748B";
+var MT="#94A3B8";
+var BD="#E2E8F0";
+
+var TYPES=[
+{id:“shelf”,label:“Rayon”,letter:“R”,color:BL,desc:“PDL, facings, ruptures”},
+{id:“price”,label:“Prix”,letter:“P”,color:OR,desc:“Verification PVC”},
+{id:“promo”,label:“Promo”,letter:“M”,color:DG,desc:“TG, ilots”},
+{id:“posm”,label:“PLV”,letter:“V”,color:GN,desc:“Share of POSM”},
+{id:“leaflet”,label:“Prospectus”,letter:“L”,color:”#7C3AED”,desc:“Share of Leaflet”},
+{id:“complete”,label:“Complet”,letter:“A”,color:DK,desc:“Tous modules”}
+];
+
+var STORES=[
+{id:“s1”,name:“Marjane Ain Sebaa”},
+{id:“s2”,name:“Carrefour Maarif”},
+{id:“s3”,name:“Acima Bd Anfa”},
+{id:“s4”,name:“BIM Hay Hassani”},
+{id:“s5”,name:“Marjane Tanger”},
+{id:“s6”,name:“Atacadao Kenitra”},
+{id:“s7”,name:“Aswak Assalam Rabat”},
+{id:“s8”,name:“LabelVie Marrakech”}
+];
+
+var IS={width:“100%”,padding:“14px 16px”,borderRadius:“12px”,border:“1px solid “+DA,background:DA,color:”#fff”,fontSize:“15px”,marginBottom:“10px”,outline:“none”,fontFamily:“inherit”};
+
+function App(){
+var s1=us(“login”);var scr=s1[0];var setScr=s1[1];
+var s2=us(null);var user=s2[0];var setUser=s2[1];
+var s3=us(null);var selS=s3[0];var setSelS=s3[1];
+var s4=us(null);var selT=s4[0];var setSelT=s4[1];
+var s5=us(null);var img=s5[0];var setImg=s5[1];
+var s6=us(false);var busy=s6[0];var setBusy=s6[1];
+var s7=us(null);var res=s7[0];var setRes=s7[1];
+var s8=us([]);var auds=s8[0];var setAuds=s8[1];
+var fR=ur(null);
+
+function doCapture(ev){
+var file=ev.target.files&&ev.target.files[0];
+if(!file)return;
+var reader=new FileReader();
+reader.onload=function(re){
+setImg({url:re.target.result});
+setScr(“result”);
+doAnalyze();
+};
+reader.readAsDataURL(file);
+}
+
+function doAnalyze(){
+setBusy(true);
+setRes(null);
+setTimeout(function(){
+var own=[
+{brand:“NIVEA”,facings:4+Math.floor(Math.random()*5),oos:Math.random()>0.7?1:0},
+{brand:“Gillette”,facings:2+Math.floor(Math.random()*4),oos:Math.random()>0.8?1:0},
+{brand:“AVON”,facings:1+Math.floor(Math.random()*3),oos:Math.random()>0.75?1:0},
+{brand:“WELLA”,facings:1+Math.floor(Math.random()*3),oos:0},
+{brand:“HKS”,facings:1+Math.floor(Math.random()*2),oos:Math.random()>0.7?1:0},
+{brand:“KALINE”,facings:1+Math.floor(Math.random()*2),oos:0}
+];
+var ownT=0;var oosC=0;
+for(var i=0;i<own.length;i++){ownT=ownT+own[i].facings;oosC=oosC+own[i].oos;}
+var compT=28+Math.floor(Math.random()*15);
+var tot=ownT+compT;
+var score=Math.floor(65+Math.random()*30);
+var denom=ownT+oosC;if(denom===0)denom=1;
+var kk={
+pdl:((ownT/tot)*100).toFixed(1),
+totalF:tot,
+ownF:ownT,
+oosC:oosC,
+oosR:((oosC/denom)*100).toFixed(1),
+linT:tot*8,
+linO:ownT*8,
+priceC:(82+Math.random()*16).toFixed(1)
+};
+var oosList=[];
+for(var j=0;j<own.length;j++){
+if(own[j].oos>0){oosList.push({brand:own[j].brand});}
+}
+setRes({score:score,kpis:kk,own:own,oos:oosList});
+setAuds(function(p){
+var item={id:Date.now(),store:selS?selS.name:”-”,type:selT?selT.label:”-”,score:score,date:new Date().toLocaleString(“fr-FR”),pdl:kk.pdl,oos:oosC};
+return[item].concat(p);
+});
+setBusy(false);
+},2200);
+}
+
+function reset(){
+setImg(null);
+setRes(null);
+setSelT(null);
+setScr(“home”);
+}
+
+var isNav=(scr===“home”||scr===“history”||scr===“profile”);
+var content=null;
+
+if(scr===“login”){
+content=e(LoginScr,{onLogin:function(em){setUser({id:“u1”,email:em,full_name:em.split(”@”)[0],role:“dgd”});setScr(“home”);},onReg:function(){setScr(“register”);}});
+}
+if(scr===“register”){
+content=e(RegScr,{onReg:function(em,nm){setUser({id:“u1”,email:em,full_name:nm,role:“dgd”});setScr(“home”);},onBack:function(){setScr(“login”);}});
+}
+if(scr===“home”){
+content=e(HomeScr,{user:user,stores:STORES,sel:selS,setSel:setSelS,go:function(t){setSelT(t);if(!selS){setSelS(STORES[0]);}setScr(“capture”);}});
+}
+if(scr===“capture”){
+content=e(CapScr,{type:selT,store:selS,fR:fR,onBack:function(){setScr(“home”);}});
+}
+if(scr===“result”){
+content=e(ResScr,{img:img,busy:busy,res:res,type:selT,store:selS,onReset:reset});
+}
+if(scr===“history”){
+content=e(HistScr,{audits:auds});
+}
+if(scr===“profile”){
+content=e(ProfScr,{user:user,onLogout:function(){setUser(null);setScr(“login”);}});
+}
+
+var nav=null;
+if(isNav){
+var tabs=[[“home”,“Accueil”],[“history”,“Audits”],[“profile”,“Profil”]];
+nav=e(“div”,{style:{position:“fixed”,bottom:0,left:“50%”,transform:“translateX(-50%)”,width:“100%”,maxWidth:“430px”,background:“rgba(255,255,255,0.97)”,borderTop:“1px solid “+BD,display:“flex”,justifyContent:“space-around”,padding:“10px 0 14px”,zIndex:100}},
+tabs.map(function(t){
+var act=(scr===t[0]);
+return e(“button”,{key:t[0],onClick:function(){setScr(t[0]);},style:{background:“none”,border:“none”,cursor:“pointer”,display:“flex”,flexDirection:“column”,alignItems:“center”,gap:“3px”,color:act?AC:MT,padding:“4px 20px”}},
+e(“div”,{style:{width:“6px”,height:“6px”,borderRadius:“50%”,background:act?AC:“transparent”}}),
+e(“span”,{style:{fontSize:“11px”,fontWeight:act?“700”:“400”}},t[1])
+);
+})
+);
+}
+
+return e(“div”,{style:{minHeight:“100vh”,maxWidth:“430px”,margin:“0 auto”,background:BG,position:“relative”}},
+e(“div”,{style:{paddingBottom:isNav?“70px”:“0”,minHeight:“100vh”}},content),
+nav,
+e(“input”,{ref:fR,type:“file”,accept:“image/*”,capture:“environment”,onChange:doCapture,style:{display:“none”}})
+);
+}
+
+function LoginScr(p){
+var a1=us(””);var em=a1[0];var sE=a1[1];
+var a2=us(””);var pw=a2[0];var sP=a2[1];
+return e(“div”,{style:{minHeight:“100vh”,display:“flex”,flexDirection:“column”,justifyContent:“center”,padding:“24px”,background:DK}},
+e(“div”,{style:{textAlign:“center”,marginBottom:“40px”}},
+e(“div”,{style:{width:“60px”,height:“60px”,borderRadius:“16px”,margin:“0 auto 16px”,background:“linear-gradient(135deg,#C41E3A,#8B2252)”,display:“flex”,alignItems:“center”,justifyContent:“center”,fontSize:“14px”,fontWeight:“800”,color:”#fff”}},“SS”),
+e(“div”,{style:{fontSize:“28px”,fontWeight:“800”,color:”#fff”}},“ShelfScan”,e(“span”,{style:{color:AC}},“Pro”)),
+e(“div”,{style:{fontSize:“12px”,color:MT,marginTop:“4px”,letterSpacing:“2px”}},“DISLOG GROUP”)
+),
+e(“div”,null,
+e(“input”,{value:em,onChange:function(x){sE(x.target.value);},placeholder:“Email”,type:“email”,style:IS}),
+e(“input”,{value:pw,onChange:function(x){sP(x.target.value);},placeholder:“Mot de passe”,type:“password”,style:IS}),
+e(“button”,{onClick:function(){if(em&&pw){p.onLogin(em);}},style:{width:“100%”,padding:“15px”,borderRadius:“12px”,border:“none”,background:AC,color:”#fff”,fontSize:“15px”,fontWeight:“700”,cursor:“pointer”,marginTop:“6px”}},“Se connecter”),
+e(“button”,{onClick:p.onReg,style:{width:“100%”,padding:“12px”,marginTop:“10px”,borderRadius:“12px”,border:“1px solid “+DA,background:“transparent”,color:MT,fontSize:“13px”,cursor:“pointer”}},“Creer un compte”)
+)
+);
+}
+
+function RegScr(p){
+var a1=us(””);var nm=a1[0];var sN=a1[1];
+var a2=us(””);var em=a2[0];var sE=a2[1];
+var a3=us(””);var pw=a3[0];var sP=a3[1];
+return e(“div”,{style:{minHeight:“100vh”,display:“flex”,flexDirection:“column”,justifyContent:“center”,padding:“24px”,background:DK}},
+e(“div”,{style:{textAlign:“center”,marginBottom:“32px”}},
+e(“div”,{style:{fontSize:“24px”,fontWeight:“800”,color:”#fff”}},“Creer un compte”),
+e(“div”,{style:{fontSize:“12px”,color:MT,marginTop:“4px”}},“ShelfScan Pro - Dislog Group”)
+),
+e(“div”,null,
+e(“input”,{value:nm,onChange:function(x){sN(x.target.value);},placeholder:“Nom complet”,style:IS}),
+e(“input”,{value:em,onChange:function(x){sE(x.target.value);},placeholder:“Email”,type:“email”,style:IS}),
+e(“input”,{value:pw,onChange:function(x){sP(x.target.value);},placeholder:“Mot de passe”,type:“password”,style:IS}),
+e(“button”,{onClick:function(){if(nm&&em&&pw){p.onReg(em,nm);}},style:{width:“100%”,padding:“15px”,borderRadius:“12px”,border:“none”,background:AC,color:”#fff”,fontSize:“15px”,fontWeight:“700”,cursor:“pointer”,marginTop:“6px”}},“Creer mon compte”),
+e(“button”,{onClick:p.onBack,style:{width:“100%”,padding:“12px”,marginTop:“10px”,borderRadius:“12px”,border:“none”,background:“transparent”,color:MT,fontSize:“13px”,cursor:“pointer”}},“Deja un compte ? Se connecter”)
+)
+);
+}
+
+function HomeScr(p){
+var u=p.user||{};
+return e(“div”,{style:{padding:“16px 16px 20px”}},
+e(“div”,{style:{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:“20px”}},
+e(“div”,null,
+e(“div”,{style:{fontSize:“13px”,color:SC}},“Bonjour,”),
+e(“div”,{style:{fontSize:“22px”,fontWeight:“800”}},u.full_name||“User”)
+),
+e(“div”,{style:{width:“42px”,height:“42px”,borderRadius:“12px”,background:“linear-gradient(135deg,#C41E3A,#8B2252)”,display:“flex”,alignItems:“center”,justifyContent:“center”,color:”#fff”,fontSize:“16px”,fontWeight:“700”}},(u.full_name||“U”).charAt(0))
+),
+e(“div”,{style:{marginBottom:“20px”}},
+e(“div”,{style:{fontSize:“11px”,fontWeight:“600”,color:SC,marginBottom:“6px”,textTransform:“uppercase”,letterSpacing:“1px”}},“POINT DE VENTE”),
+e(“select”,{value:(p.sel&&p.sel.id)||””,onChange:function(ev){var s=p.stores.find(function(x){return x.id===ev.target.value;});p.setSel(s);},style:{width:“100%”,padding:“12px”,borderRadius:“12px”,border:“1px solid “+BD,background:SF,fontSize:“14px”,fontFamily:“inherit”}},
+e(“option”,{value:””},”– Selectionner –”),
+p.stores.map(function(s){return e(“option”,{key:s.id,value:s.id},s.name);})
+)
+),
+e(“div”,null,
+e(“div”,{style:{fontSize:“11px”,fontWeight:“600”,color:SC,marginBottom:“10px”,textTransform:“uppercase”,letterSpacing:“1px”}},“TYPE D’AUDIT”),
+e(“div”,{style:{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:“10px”}},
+TYPES.map(function(t){
+return e(“button”,{key:t.id,onClick:function(){p.go(t);},style:{background:SF,border:“1px solid “+BD,borderRadius:“14px”,padding:“16px 14px”,cursor:“pointer”,textAlign:“left”,fontFamily:“inherit”}},
+e(“div”,{style:{width:“36px”,height:“36px”,borderRadius:“10px”,background:t.color,display:“flex”,alignItems:“center”,justifyContent:“center”,color:”#fff”,fontSize:“14px”,fontWeight:“800”,marginBottom:“10px”}},t.letter),
+e(“div”,{style:{fontSize:“13px”,fontWeight:“700”,marginBottom:“3px”}},t.label),
+e(“div”,{style:{fontSize:“11px”,color:SC}},t.desc)
+);
+})
+)
+)
+);
+}
+
+function CapScr(p){
+return e(“div”,{style:{minHeight:“100vh”,display:“flex”,flexDirection:“column”,background:DK}},
+e(“div”,{style:{padding:“16px”,display:“flex”,alignItems:“center”,gap:“12px”}},
+e(“button”,{onClick:p.onBack,style:{background:“none”,border:“none”,color:”#fff”,cursor:“pointer”,fontSize:“20px”,padding:“4px”}},”<”),
+e(“div”,null,
+e(“div”,{style:{fontSize:“16px”,fontWeight:“700”,color:”#fff”}},(p.type&&p.type.label)||“Audit”),
+e(“div”,{style:{fontSize:“11px”,color:MT}},(p.store&&p.store.name)||””)
+)
+),
+e(“div”,{style:{flex:1,display:“flex”,flexDirection:“column”,alignItems:“center”,justifyContent:“center”,padding:“20px”}},
+e(“div”,{style:{width:“80%”,maxWidth:“280px”,aspectRatio:“3/4”,border:“3px dashed rgba(148,163,184,0.4)”,borderRadius:“20px”,display:“flex”,flexDirection:“column”,alignItems:“center”,justifyContent:“center”,gap:“16px”,padding:“24px”}},
+e(“div”,{style:{width:“64px”,height:“64px”,borderRadius:“50%”,background:“rgba(196,30,58,0.15)”,display:“flex”,alignItems:“center”,justifyContent:“center”,color:AC,fontSize:“14px”,fontWeight:“800”}},“CAM”),
+e(“div”,{style:{color:”#fff”,fontSize:“16px”,fontWeight:“600”,textAlign:“center”}},“Photographiez le rayon”)
+),
+e(“button”,{onClick:function(){if(p.fR.current){p.fR.current.click();}},style:{marginTop:“32px”,width:“72px”,height:“72px”,borderRadius:“50%”,background:AC,border:“4px solid rgba(196,30,58,0.3)”,cursor:“pointer”,color:”#fff”,fontSize:“14px”,fontWeight:“800”,boxShadow:“0 0 30px rgba(196,30,58,0.4)”}},“PHOTO”)
+)
+);
+}
+
+function ResScr(p){
+var k=(p.res&&p.res.kpis)||{};
+return e(“div”,{style:{minHeight:“100vh”,background:BG}},
+e(“div”,{style:{position:“relative”,width:“100%”,maxHeight:“220px”,overflow:“hidden”}},
+p.img?e(“img”,{src:p.img.url,style:{width:“100%”,display:“block”,objectFit:“cover”,maxHeight:“220px”}}):null,
+p.busy?e(“div”,{style:{position:“absolute”,top:0,left:0,right:0,bottom:0,background:“rgba(0,0,0,0.6)”,display:“flex”,flexDirection:“column”,alignItems:“center”,justifyContent:“center”,gap:“12px”}},
+e(“div”,{style:{fontSize:“14px”,color:AC,fontWeight:“600”}},“Analyse IA en cours…”)
+):null,
+(p.res&&!p.busy)?e(“div”,{style:{position:“absolute”,bottom:“12px”,left:“12px”,right:“12px”,background:“rgba(0,0,0,0.7)”,borderRadius:“10px”,padding:“8px 14px”}},
+e(“span”,{style:{fontSize:“13px”,fontWeight:“600”,color:”#fff”}},“Score: “+p.res.score+”/100”)
+):null
+),
+e(“div”,{style:{padding:“12px 16px 0”}},
+e(“div”,{style:{fontSize:“18px”,fontWeight:“800”}},(p.type&&p.type.label)||“Audit”),
+e(“div”,{style:{fontSize:“12px”,color:SC}},(p.store&&p.store.name)||””)
+),
+(p.res&&!p.busy)?e(“div”,{style:{padding:“16px”}},
+e(“div”,{style:{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:“10px”}},
+e(KPI,{l:“Part de Lineaire”,v:k.pdl+”%”,c:BL}),
+e(KPI,{l:“Facings Dislog”,v:String(k.ownF),s:”/ “+k.totalF+” total”,c:AC}),
+e(KPI,{l:“Ruptures OOS”,v:String(k.oosC),c:k.oosC>3?DG:GN}),
+e(KPI,{l:“Taux Rupture”,v:k.oosR+”%”,c:OR}),
+e(KPI,{l:“Lineaire Total”,v:k.linT+” cm”,c:SC}),
+e(KPI,{l:“Conformite Prix”,v:k.priceC+”%”,c:parseFloat(k.priceC)>=90?GN:OR})
+),
+(p.res.oos&&p.res.oos.length>0)?e(“div”,{style:{marginTop:“14px”,padding:“14px”,borderRadius:“12px”,background:”#FEF2F2”,border:“1px solid #FECACA”}},
+e(“div”,{style:{fontSize:“13px”,fontWeight:“700”,color:DG,marginBottom:“8px”}},“Ruptures detectees :”),
+p.res.oos.map(function(o,i){return e(“div”,{key:i,style:{fontSize:“12px”,padding:“4px 0”}},o.brand+” - ref a identifier”);})
+):null,
+p.res.own?e(“div”,{style:{marginTop:“14px”,padding:“14px”,borderRadius:“12px”,background:SF,border:“1px solid “+BD}},
+e(“div”,{style:{fontSize:“13px”,fontWeight:“700”,marginBottom:“10px”}},“Detail par marque Dislog”),
+p.res.own.map(function(bb,i){return e(“div”,{key:i,style:{display:“flex”,justifyContent:“space-between”,padding:“7px 0”,borderBottom:i<p.res.own.length-1?“1px solid “+BD:“none”}},
+e(“span”,{style:{fontSize:“12px”,fontWeight:“600”}},bb.brand),
+e(“span”,{style:{fontSize:“12px”,fontWeight:“600”,color:bb.oos>0?DG:GN}},bb.facings+” fac.”+(bb.oos>0?” | “+bb.oos+” OOS”:” OK”))
+);})
+):null,
+e(“div”,{style:{display:“flex”,gap:“10px”,marginTop:“20px”}},
+e(“button”,{onClick:p.onReset,style:{flex:1,padding:“14px”,borderRadius:“12px”,border:“1px solid “+BD,background:SF,fontSize:“14px”,fontWeight:“600”,cursor:“pointer”,fontFamily:“inherit”}},“Nouvel Audit”),
+e(“button”,{onClick:p.onReset,style:{flex:1,padding:“14px”,borderRadius:“12px”,border:“none”,background:AC,color:”#fff”,fontSize:“14px”,fontWeight:“600”,cursor:“pointer”,fontFamily:“inherit”}},“Terminer”)
+)
+):null
+);
+}
+
+function KPI(p){
+return e(“div”,{style:{background:SF,borderRadius:“12px”,padding:“14px 12px”,border:“1px solid “+BD}},
+e(“div”,{style:{fontSize:“10px”,color:SC,marginBottom:“6px”}},p.l),
+e(“div”,{style:{fontSize:“22px”,fontWeight:“800”,color:p.c}},p.v),
+p.s?e(“div”,{style:{fontSize:“10px”,color:MT,marginTop:“2px”}},p.s):null
+);
+}
+
+function HistScr(p){
+return e(“div”,{style:{padding:“16px”}},
+e(“div”,{style:{fontSize:“22px”,fontWeight:“800”,marginBottom:“16px”}},“Historique des Audits”),
+p.audits.length===0?e(“div”,{style:{textAlign:“center”,padding:“40px”,color:MT}},
+e(“div”,{style:{fontSize:“14px”}},“Aucun audit realise”),
+e(“div”,{style:{fontSize:“12px”,marginTop:“4px”}},“Vos audits apparaitront ici”)
+):null,
+p.audits.map(function(aa){return e(“div”,{key:aa.id,style:{background:SF,border:“1px solid “+BD,borderRadius:“12px”,padding:“14px 16px”,marginBottom:“8px”}},
+e(“div”,{style:{display:“flex”,justifyContent:“space-between”,marginBottom:“4px”}},
+e(“span”,{style:{fontWeight:“700”,fontSize:“14px”}},aa.store),
+e(“span”,{style:{fontSize:“18px”,fontWeight:“800”,color:aa.score>=80?GN:OR}},aa.score)
+),
+e(“div”,{style:{fontSize:“11px”,color:SC}},aa.type+” | PDL “+aa.pdl+”% | “+aa.oos+” OOS”),
+e(“div”,{style:{fontSize:“10px”,color:MT,marginTop:“4px”}},aa.date)
+);})
+);
+}
+
+function ProfScr(p){
+var u=p.user||{};
+return e(“div”,{style:{padding:“16px”}},
+e(“div”,{style:{textAlign:“center”,marginTop:“20px”,marginBottom:“30px”}},
+e(“div”,{style:{width:“72px”,height:“72px”,borderRadius:“20px”,margin:“0 auto 12px”,background:“linear-gradient(135deg,#C41E3A,#8B2252)”,display:“flex”,alignItems:“center”,justifyContent:“center”,color:”#fff”,fontSize:“28px”,fontWeight:“700”}},(u.full_name||“U”).charAt(0)),
+e(“div”,{style:{fontSize:“20px”,fontWeight:“700”}},u.full_name||””),
+e(“div”,{style:{fontSize:“13px”,color:SC}},u.email||””),
+e(“div”,{style:{display:“inline-block”,marginTop:“8px”,padding:“4px 14px”,borderRadius:“8px”,background:”#FDE8EC”,color:AC,fontSize:“11px”,fontWeight:“600”,textTransform:“uppercase”}},u.role||“user”)
+),
+e(“button”,{onClick:p.onLogout,style:{width:“100%”,padding:“14px”,borderRadius:“12px”,border:“1px solid rgba(220,38,38,0.3)”,background:”#FEF2F2”,color:DG,fontSize:“14px”,fontWeight:“600”,cursor:“pointer”,fontFamily:“inherit”}},“Se deconnecter”),
+e(“div”,{style:{textAlign:“center”,marginTop:“30px”,fontSize:“10px”,color:MT}},“ShelfScan Pro v1.0 | Dislog Group”)
+);
+}
+
+ReactDOM.createRoot(document.getElementById(“root”)).render(e(App));
+</script>
+
+</body>
+</html>
