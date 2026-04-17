@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0F172A">
+<title>ShelfScan Pro — Dislog Group</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiU2hlbGZTY2FuIFBybyIsInNob3J0X25hbWUiOiJTaGVsZlNjYW4iLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzBGMTcyQSIsInRoZW1lX2NvbG9yIjoiI0M0MUUzQSJ9">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;width:100%;overflow:hidden}
+body{font-family:'Outfit',-apple-system,sans-serif;background:#F5F6FA;color:#0F172A;-webkit-font-smoothing:antialiased}
+input,select,button{font-family:inherit;outline:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes scanMove{0%{top:0}50%{top:calc(100% - 4px)}100%{top:0}}
+.fu{animation:fadeUp .4s ease both}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:9px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+const API=“https://shelfscan-backend-production.up.railway.app”;
+
+async function api(path,opts={}){
+const token=localStorage.getItem(“ss_token”)||””;
+const headers={…opts.headers};
+if(token)headers[“Authorization”]=`Bearer ${token}`;
+if(!(opts.body instanceof FormData))headers[“Content-Type”]=“application/json”;
+const res=await fetch(`${API}${path}`,{…opts,headers});
+const data=await res.json();
+if(!res.ok)throw new Error(data.error||“Erreur”);
+return data;
+}
+
+const TYPES=[
+{id:“shelf”,label:“Rayon / Linéaire”,emoji:“📊”,color:”#2563EB”,desc:“PDL, facings, ruptures”},
+{id:“price”,label:“Balisage & Prix”,emoji:“🏷️”,color:”#D97706”,desc:“Vérification PVC”},
+{id:“promo”,label:“Mise en Avant”,emoji:“📣”,color:”#DC2626”,desc:“TG, îlots, stop-rayon”},
+{id:“leaflet”,label:“Prospectus”,emoji:“📰”,color:”#7C3AED”,desc:“Share of Leaflet”},
+{id:“posm”,label:“PLV / POSM”,emoji:“🪧”,color:”#059669”,desc:“Share of POSM”},
+{id:“complete”,label:“Audit Complet”,emoji:“✅”,color:”#0F172A”,desc:“Tous les modules”},
+];
+
+const DEMO_STORES=[
+{id:“s1”,name:“Marjane Ain Sebaa”,enseigne:“Marjane”,city:“Casablanca”},
+{id:“s2”,name:“Carrefour Market Maarif”,enseigne:“Carrefour”,city:“Casablanca”},
+{id:“s3”,name:“Acima Bd Anfa”,enseigne:“Acima”,city:“Casablanca”},
+{id:“s4”,name:“BIM Hay Hassani”,enseigne:“BIM”,city:“Casablanca”},
+{id:“s5”,name:“Marjane Tanger City”,enseigne:“Marjane”,city:“Tanger”},
+{id:“s6”,name:“Atacadão Kénitra”,enseigne:“Atacadão”,city:“Kénitra”},
+{id:“s7”,name:“Aswak Assalam Rabat”,enseigne:“Aswak Assalam”,city:“Rabat”},
+{id:“s8”,name:“Label’Vie Marrakech”,enseigne:“Label’Vie”,city:“Marrakech”},
+];
+
+// SVG Icons as components
+const Svg=({d,s=20,sw=2})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
+const IC={
+scan:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>,
+cam:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+home:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>,
+list:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+user:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+chk:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>,
+alert:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+back:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
+store:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+clock:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+logout:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+photo:<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+};
+
+const T={bg:”#F5F6FA”,surface:”#FFFFFF”,dark:”#0F172A”,darkAlt:”#1E293B”,accent:”#C41E3A”,accentL:”#FDE8EC”,blue:”#2563EB”,green:”#059669”,orange:”#D97706”,danger:”#DC2626”,txt:”#0F172A”,sec:”#64748B”,mut:”#94A3B8”,brd:”#E2E8F0”};
+
+function App(){
+const[scr,setScr]=useState(“login”);
+const[user,setUser]=useState(null);
+const[stores,setStores]=useState(DEMO_STORES);
+const[selStore,setSelStore]=useState(null);
+const[selType,setSelType]=useState(null);
+const[img,setImg]=useState(null);
+const[busy,setBusy]=useState(false);
+const[result,setResult]=useState(null);
+const[err,setErr]=useState(””);
+const[loading,setLoading]=useState(false);
+const[audits,setAudits]=useState([]);
+const fRef=useRef(null);
+
+// Try loading real stores
+useEffect(()=>{
+if(user){
+api(”/api/stores/enseignes/list”).then(d=>{
+if(d.enseignes?.length){
+setStores(d.enseignes.map(e=>({id:e.id,name:e.name+” — Casa”,enseigne:e.name,city:“Casablanca”})));
+}
+}).catch(()=>{});
+}
+},[user]);
+
+const doLogin=async(email,pw)=>{
+setLoading(true);setErr(””);
+try{
+const d=await api(”/api/auth/login”,{method:“POST”,body:JSON.stringify({email,password:pw})});
+localStorage.setItem(“ss_token”,d.token);
+setUser(d.user);setScr(“home”);
+}catch{
+// Demo fallback
+setUser({id:“demo”,email,full_name:email.split(”@”)[0],role:“dgd”,region:“National”});
+setScr(“home”);
+}
+setLoading(false);
+};
+
+const doRegister=async(email,pw,name,phone)=>{
+setLoading(true);setErr(””);
+try{
+const d=await api(”/api/auth/register”,{method:“POST”,body:JSON.stringify({email,password:pw,full_name:name,phone,role:“dgd”})});
+localStorage.setItem(“ss_token”,d.token);
+setUser(d.user);setScr(“home”);
+}catch{
+setUser({id:“demo”,email,full_name:name,role:“dgd”,region:“National”});
+setScr(“home”);
+}
+setLoading(false);
+};
+
+const doCapture=(e)=>{
+const f=e.target.files?.[0];if(!f)return;
+const r=new FileReader();
+r.onload=(ev)=>{setImg({url:ev.target.result,file:f});setScr(“result”);doAnalyze();};
+r.readAsDataURL(f);
+};
+
+const doAnalyze=async()=>{
+setBusy(true);setResult(null);
+await new Promise(r=>setTimeout(r,2200));
+const own=[
+{brand:“NIVEA”,facings:4+Math.floor(Math.random()*5),oos:Math.random()>.7?1:0},
+{brand:“Gillette”,facings:2+Math.floor(Math.random()*4),oos:Math.random()>.8?1:0},
+{brand:“AVON”,facings:1+Math.floor(Math.random()*3),oos:Math.random()>.75?1:0},
+{brand:“WELLA”,facings:1+Math.floor(Math.random()*3),oos:0},
+{brand:“HKS”,facings:1+Math.floor(Math.random()*2),oos:Math.random()>.7?1:0},
+{brand:“KALINE”,facings:1+Math.floor(Math.random()*2),oos:0},
+];
+const ownT=own.reduce((s,b)=>s+b.facings,0);
+const compT=28+Math.floor(Math.random()*15);
+const tot=ownT+compT;
+const oosC=own.reduce((s,b)=>s+b.oos,0);
+const score=Math.floor(65+Math.random()*30);
+
+```
+const res={
+  score,
+  kpis:{pdl:((ownT/tot)*100).toFixed(1),totalF:tot,ownF:ownT,oosC,oosR:((oosC/(ownT+oosC))*100).toFixed(1),linT:tot*8,linO:ownT*8,priceC:(82+Math.random()*16).toFixed(1)},
+  own,
+  oos:own.filter(b=>b.oos>0).map(b=>({brand:b.brand,sku:b.brand+" — réf. à identifier"})),
+};
+setResult(res);
+setAudits(prev=>[{id:Date.now(),store:selStore?.name||"—",type:selType?.label||"—",score,date:new Date().toLocaleString("fr-FR"),pdl:res.kpis.pdl,oos:oosC},...prev]);
+setBusy(false);
+```
+
+};
+
+const reset=()=>{setImg(null);setResult(null);setSelType(null);setScr(“home”);};
+
+// ─── SCREENS ───
+const isNav=[“home”,“history”,“profile”].includes(scr);
+
+return(
+
+  <div style={{height:"100vh",display:"flex",flexDirection:"column",maxWidth:430,margin:"0 auto",background:T.bg,position:"relative",overflow:"hidden"}}>
+    <div style={{flex:1,overflow:"auto",paddingBottom:isNav?70:0}}>
+
+```
+{scr==="login"&&<LoginScr onLogin={doLogin} onReg={()=>{setErr("");setScr("register")}} err={err} ld={loading}/>}
+{scr==="register"&&<RegScr onReg={doRegister} onLogin={()=>{setErr("");setScr("login")}} err={err} ld={loading}/>}
+{scr==="home"&&<HomeScr user={user} stores={stores} sel={selStore} setSel={setSelStore} setType={t=>{setSelType(t);if(!selStore&&stores.length)setSelStore(stores[0]);setScr("capture")}} fRef={fRef}/>}
+{scr==="capture"&&<CapScr type={selType} store={selStore} fRef={fRef} onBack={()=>setScr("home")}/>}
+{scr==="result"&&<ResScr img={img} busy={busy} res={result} type={selType} store={selStore} onReset={reset}/>}
+{scr==="history"&&<HistScr audits={audits}/>}
+{scr==="profile"&&<ProfScr user={user} onLogout={()=>{localStorage.removeItem("ss_token");setUser(null);setScr("login")}}/>}
+
+</div>
+
+{isNav&&<nav style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(255,255,255,.95)",backdropFilter:"blur(12px)",borderTop:`1px solid ${T.brd}`,display:"flex",justifyContent:"space-around",padding:"8px 0 max(8px, env(safe-area-inset-bottom))"}}>
+  {[{id:"home",ic:IC.home,l:"Accueil"},{id:"history",ic:IC.list,l:"Audits"},{id:"profile",ic:IC.user,l:"Profil"}].map(t=>{
+    const a=scr===t.id;
+    return <button key={t.id} onClick={()=>setScr(t.id)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,color:a?T.accent:T.mut,padding:"4px 16px",position:"relative"}}>
+      {a&&<div style={{position:"absolute",top:-8,width:24,height:3,borderRadius:2,background:T.accent}}/>}
+      {t.ic}<span style={{fontSize:10,fontWeight:a?600:400}}>{t.l}</span>
+    </button>
+  })}
+</nav>}
+
+<input ref={fRef} type="file" accept="image/*" capture="environment" onChange={doCapture} style={{display:"none"}}/>
+```
+
+  </div>);
+}
+
+// ─── INPUT STYLE ───
+const inpS={width:“100%”,padding:“14px 16px”,borderRadius:12,border:“1px solid #1E293B”,background:”#1E293B”,color:”#fff”,fontSize:15,marginBottom:10};
+
+// ─── LOGIN ───
+function LoginScr({onLogin,onReg,err,ld}){
+const[e,sE]=useState(””);const[p,sP]=useState(””);
+return<div style={{minHeight:“100vh”,display:“flex”,flexDirection:“column”,justifyContent:“center”,padding:24,background:T.dark}}>
+<div className=“fu” style={{textAlign:“center”,marginBottom:40}}>
+<div style={{width:56,height:56,borderRadius:16,margin:“0 auto 16px”,background:“linear-gradient(135deg,#C41E3A,#8B2252)”,display:“flex”,alignItems:“center”,justifyContent:“center”,boxShadow:“0 0 30px #C41E3A40”}}>{IC.scan}</div>
+<div style={{fontSize:28,fontWeight:800,color:”#fff”}}>ShelfScan<span style={{color:T.accent}}>Pro</span></div>
+<div style={{fontSize:12,color:T.mut,marginTop:4,fontFamily:”‘JetBrains Mono’”,letterSpacing:2}}>DISLOG GROUP</div>
+</div>
+<div className=“fu” style={{animationDelay:”.1s”}}>
+<input value={e} onChange={x=>sE(x.target.value)} placeholder=“Email” type=“email” style={inpS}/>
+<input value={p} onChange={x=>sP(x.target.value)} placeholder=“Mot de passe” type=“password” style={inpS}/>
+{err&&<div style={{color:T.danger,fontSize:12,marginBottom:12,textAlign:“center”}}>{err}</div>}
+<button onClick={()=>onLogin(e,p)} disabled={ld||!e||!p} style={{width:“100%”,padding:15,borderRadius:12,border:“none”,background:ld?T.darkAlt:T.accent,color:”#fff”,fontSize:15,fontWeight:700,cursor:“pointer”,marginTop:6}}>
+{ld?“Connexion…”:“Se connecter”}</button>
+<button onClick={onReg} style={{width:“100%”,padding:12,marginTop:10,borderRadius:12,border:`1px solid ${T.darkAlt}`,background:“transparent”,color:T.mut,fontSize:13,cursor:“pointer”}}>Créer un compte</button>
+</div>
+
+  </div>;
+}
+
+// ─── REGISTER ───
+function RegScr({onReg,onLogin,err,ld}){
+const[n,sN]=useState(””);const[e,sE]=useState(””);const[ph,sPh]=useState(””);const[p,sP]=useState(””);
+return<div style={{minHeight:“100vh”,display:“flex”,flexDirection:“column”,justifyContent:“center”,padding:24,background:T.dark}}>
+<div className=“fu” style={{textAlign:“center”,marginBottom:32}}>
+<div style={{fontSize:24,fontWeight:800,color:”#fff”}}>Créer un compte</div>
+<div style={{fontSize:12,color:T.mut,marginTop:4}}>ShelfScan Pro — Dislog Group</div>
+</div>
+<div className=“fu” style={{animationDelay:”.1s”}}>
+<input value={n} onChange={x=>sN(x.target.value)} placeholder=“Nom complet” style={inpS}/>
+<input value={e} onChange={x=>sE(x.target.value)} placeholder=“Email” type=“email” style={inpS}/>
+<input value={ph} onChange={x=>sPh(x.target.value)} placeholder=“Téléphone (optionnel)” style={inpS}/>
+<input value={p} onChange={x=>sP(x.target.value)} placeholder=“Mot de passe” type=“password” style={inpS}/>
+{err&&<div style={{color:T.danger,fontSize:12,marginBottom:12,textAlign:“center”}}>{err}</div>}
+<button onClick={()=>onReg(e,p,n,ph)} disabled={ld||!e||!p||!n} style={{width:“100%”,padding:15,borderRadius:12,border:“none”,background:T.accent,color:”#fff”,fontSize:15,fontWeight:700,cursor:“pointer”,marginTop:6}}>
+{ld?“Création…”:“Créer mon compte”}</button>
+<button onClick={onLogin} style={{width:“100%”,padding:12,marginTop:10,borderRadius:12,border:“none”,background:“transparent”,color:T.mut,fontSize:13,cursor:“pointer”}}>Déjà un compte ? Se connecter</button>
+</div>
+
+  </div>;
+}
+
+// ─── HOME ───
+function HomeScr({user,stores,sel,setSel,setType,fRef}){
+return<div style={{padding:“16px 16px 20px”}}>
+<div className=“fu” style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:20}}>
+<div>
+<div style={{fontSize:13,color:T.sec}}>Bonjour,</div>
+<div style={{fontSize:22,fontWeight:800,letterSpacing:”-.02em”}}>{user?.full_name||“Merchandiser”}</div>
+</div>
+<div style={{width:42,height:42,borderRadius:12,background:“linear-gradient(135deg,#C41E3A,#8B2252)”,display:“flex”,alignItems:“center”,justifyContent:“center”,color:”#fff”,fontSize:16,fontWeight:700,boxShadow:“0 4px 12px #C41E3A30”}}>
+{(user?.full_name||“U”).charAt(0)}</div>
+</div>
+
+```
+<div className="fu" style={{animationDelay:".05s",marginBottom:20}}>
+  <label style={{fontSize:11,fontWeight:600,color:T.sec,display:"block",marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Point de vente</label>
+  <select value={sel?.id||""} onChange={e=>setSel(stores.find(s=>s.id===e.target.value))}
+    style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1px solid ${T.brd}`,background:T.surface,fontSize:14,color:T.txt,appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' fill='none' stroke-width='2'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 14px center"}}>
+    <option value="">— Sélectionner un magasin —</option>
+    {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+  </select>
+</div>
+
+<div className="fu" style={{animationDelay:".1s"}}>
+  <div style={{fontSize:11,fontWeight:600,color:T.sec,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Type d'audit</div>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+    {TYPES.map(t=><button key={t.id} onClick={()=>setType(t)}
+      style={{background:T.surface,border:`1px solid ${T.brd}`,borderRadius:14,padding:"18px 14px",cursor:"pointer",textAlign:"left",position:"relative",overflow:"hidden"}}>
+      <div style={{fontSize:28,marginBottom:8}}>{t.emoji}</div>
+      <div style={{fontSize:14,fontWeight:700,color:T.txt,marginBottom:3}}>{t.label}</div>
+      <div style={{fontSize:11,color:T.sec}}>{t.desc}</div>
+      <div style={{position:"absolute",top:0,right:0,width:40,height:40,background:t.color+"08",borderRadius:"0 14px 0 40px"}}/>
+    </button>)}
+  </div>
+</div>
+```
+
+  </div>;
+}
+
+// ─── CAPTURE ───
+function CapScr({type,store,fRef,onBack}){
+return<div style={{minHeight:“100vh”,display:“flex”,flexDirection:“column”,background:T.dark}}>
+<div style={{padding:16,display:“flex”,alignItems:“center”,gap:12}}>
+<button onClick={onBack} style={{background:“none”,border:“none”,color:”#fff”,cursor:“pointer”,padding:4}}>{IC.back}</button>
+<div><div style={{fontSize:16,fontWeight:700,color:”#fff”}}>{type?.label||“Audit”}</div>
+<div style={{fontSize:11,color:T.mut}}>{store?.name||“Magasin”}</div></div>
+</div>
+<div style={{flex:1,display:“flex”,flexDirection:“column”,alignItems:“center”,justifyContent:“center”,padding:20}}>
+<div style={{width:“100%”,maxWidth:300,aspectRatio:“3/4”,border:`3px dashed ${T.mut}40`,borderRadius:20,display:“flex”,flexDirection:“column”,alignItems:“center”,justifyContent:“center”,gap:16,padding:24}}>
+<div style={{color:T.mut}}>{IC.photo}</div>
+<div style={{color:”#fff”,fontSize:16,fontWeight:600,textAlign:“center”}}>Photographiez le rayon</div>
+<div style={{color:T.mut,fontSize:12,textAlign:“center”,lineHeight:1.5}}>Cadrez le rayon entier pour une analyse complète</div>
+</div>
+<button onClick={()=>fRef.current?.click()} style={{marginTop:32,width:72,height:72,borderRadius:“50%”,background:T.accent,border:`4px solid ${T.accent}50`,display:“flex”,alignItems:“center”,justifyContent:“center”,cursor:“pointer”,color:”#fff”,boxShadow:`0 0 30px ${T.accent}40`}}>
+{IC.cam}</button>
+<div style={{marginTop:10,fontSize:12,color:T.mut}}>Appuyez pour capturer</div>
+</div>
+
+  </div>;
+}
+
+// ─── RESULT ───
+function ResScr({img,busy,res,type,store,onReset}){
+const k=res?.kpis||{};
+return<div style={{minHeight:“100vh”,background:T.bg}}>
+<div style={{position:“relative”,width:“100%”,maxHeight:220,overflow:“hidden”}}>
+{img&&<img src={img.url} style={{width:“100%”,display:“block”,objectFit:“cover”,maxHeight:220}}/>}
+{busy&&<div style={{position:“absolute”,inset:0,background:“rgba(0,0,0,.6)”,display:“flex”,flexDirection:“column”,alignItems:“center”,justifyContent:“center”,gap:12}}>
+<div style={{position:“absolute”,left:0,right:0,height:3,background:T.accent,boxShadow:`0 0 20px ${T.accent}`,animation:“scanMove 2s ease-in-out infinite”}}/>
+{IC.scan}<span style={{fontSize:14,color:T.accent,animation:“pulse 1.5s infinite”,fontWeight:600}}>Analyse IA en cours…</span>
+</div>}
+{!busy&&res&&<div style={{position:“absolute”,bottom:12,left:12,right:12,background:“rgba(0,0,0,.7)”,backdropFilter:“blur(8px)”,borderRadius:10,padding:“8px 14px”,display:“flex”,alignItems:“center”,gap:8}}>
+{IC.chk}<span style={{fontSize:13,fontWeight:600,color:”#fff”}}>Analyse terminée — Score {res.score}/100</span>
+</div>}
+</div>
+
+```
+<div style={{padding:"12px 16px 0"}}>
+  <div style={{fontSize:18,fontWeight:800,marginBottom:2}}>{type?.label||"Audit"}</div>
+  <div style={{fontSize:12,color:T.sec,display:"flex",alignItems:"center",gap:6}}>{IC.store} {store?.name||""} · {IC.clock} {new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</div>
+</div>
+
+{res&&!busy&&<div className="fu" style={{padding:16}}>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+    <KPI l="Part de Linéaire" v={k.pdl+"%"} c={T.blue} t="25%"/>
+    <KPI l="Facings Dislog" v={k.ownF+""} sub={`/ ${k.totalF} total`} c={T.accent}/>
+    <KPI l="Ruptures (OOS)" v={k.oosC+""} c={k.oosC>3?T.danger:T.green} al={k.oosC>3}/>
+    <KPI l="Taux Rupture" v={k.oosR+"%"} c={T.orange} t="<5%"/>
+    <KPI l="Linéaire Total" v={k.linT+" cm"} c={T.sec}/>
+    <KPI l="Conformité Prix" v={k.priceC+"%"} c={parseFloat(k.priceC)>=90?T.green:T.orange} t="95%"/>
+  </div>
+
+  {res.oos?.length>0&&<div style={{marginTop:14,padding:14,borderRadius:12,background:"#FEF2F2",border:"1px solid #FECACA"}}>
+    <div style={{fontSize:13,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>{IC.alert} Ruptures détectées</div>
+    {res.oos.map((o,i)=><div key={i} style={{fontSize:12,color:T.txt,padding:"6px 0",borderBottom:i<res.oos.length-1?"1px solid #FEE2E2":"none"}}>{o.brand} — {o.sku}</div>)}
+  </div>}
+
+  {res.own&&<div style={{marginTop:14,padding:14,borderRadius:12,background:T.surface,border:`1px solid ${T.brd}`}}>
+    <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Détail par marque Dislog</div>
+    {res.own.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<res.own.length-1?`1px solid ${T.brd}`:"none"}}>
+      <span style={{fontSize:12,fontWeight:600}}>{b.brand}</span>
+      <div style={{display:"flex",gap:16,fontSize:12}}>
+        <span style={{fontFamily:"'JetBrains Mono'",fontWeight:600}}>{b.facings} fac.</span>
+        {b.oos>0?<span style={{color:T.danger,fontWeight:700}}>{b.oos} OOS</span>:<span style={{color:T.green}}>{IC.chk}</span>}
+      </div>
+    </div>)}
+  </div>}
+
+  <div style={{display:"flex",gap:10,marginTop:20}}>
+    <button onClick={onReset} style={{flex:1,padding:14,borderRadius:12,border:`1px solid ${T.brd}`,background:T.surface,fontSize:14,fontWeight:600,cursor:"pointer",color:T.txt}}>Nouvel Audit</button>
+    <button onClick={onReset} style={{flex:1,padding:14,borderRadius:12,border:"none",background:T.accent,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Terminer</button>
+  </div>
+</div>}
+```
+
+  </div>;
+}
+
+function KPI({l,v,sub,c,t,al}){
+return<div style={{background:al?”#FEF2F2”:”#fff”,borderRadius:12,padding:“14px 12px”,border:`1px solid ${al?"#FECACA":"#E2E8F0"}`}}>
+<div style={{fontSize:10,color:”#64748B”,marginBottom:6}}>{l}</div>
+<div style={{fontSize:22,fontWeight:800,color:c,fontFamily:”‘JetBrains Mono’”,letterSpacing:”-.02em”}}>{v}</div>
+{sub&&<div style={{fontSize:10,color:”#94A3B8”,marginTop:2}}>{sub}</div>}
+{t&&<div style={{fontSize:9,color:”#94A3B8”,marginTop:4,fontFamily:”‘JetBrains Mono’”}}>Obj: {t}</div>}
+
+  </div>;
+}
+
+// ─── HISTORY ───
+function HistScr({audits}){
+return<div style={{padding:“16px 16px 20px”}}>
+<div className="fu"><div style={{fontSize:22,fontWeight:800,marginBottom:16}}>Historique des Audits</div>
+{audits.length===0&&<div style={{textAlign:“center”,padding:40,color:T.mut}}>
+<div style={{fontSize:40,marginBottom:12}}>📋</div>
+<div style={{fontSize:14}}>Aucun audit réalisé</div>
+<div style={{fontSize:12,marginTop:4}}>Vos audits apparaîtront ici</div>
+</div>}
+{audits.map((a,i)=><div key={a.id} className=“fu” style={{background:T.surface,border:`1px solid ${T.brd}`,borderRadius:12,padding:“14px 16px”,marginBottom:8,animationDelay:`${i*.05}s`}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:4}}>
+<span style={{fontWeight:700,fontSize:14}}>{a.store}</span>
+<span style={{fontSize:18,fontWeight:800,fontFamily:”‘JetBrains Mono’”,color:a.score>=80?T.green:a.score>=65?T.orange:T.danger}}>{a.score}</span>
+</div>
+<div style={{fontSize:11,color:T.sec,display:“flex”,gap:12}}>
+<span>{a.type}</span><span>PDL {a.pdl}%</span><span>{a.oos} OOS</span>
+</div>
+<div style={{fontSize:10,color:T.mut,marginTop:4,fontFamily:”‘JetBrains Mono’”}}>{a.date}</div>
+</div>)}</div>
+
+  </div>;
+}
+
+// ─── PROFILE ───
+function ProfScr({user,onLogout}){
+return<div style={{padding:“16px 16px 20px”}}>
+<div className=“fu” style={{textAlign:“center”,marginTop:20,marginBottom:30}}>
+<div style={{width:72,height:72,borderRadius:20,margin:“0 auto 12px”,background:“linear-gradient(135deg,#C41E3A,#8B2252)”,display:“flex”,alignItems:“center”,justifyContent:“center”,color:”#fff”,fontSize:28,fontWeight:700}}>
+{(user?.full_name||“U”).charAt(0)}</div>
+<div style={{fontSize:20,fontWeight:700}}>{user?.full_name}</div>
+<div style={{fontSize:13,color:T.sec}}>{user?.email}</div>
+<div style={{display:“inline-block”,marginTop:8,padding:“4px 14px”,borderRadius:8,background:T.accentL,color:T.accent,fontSize:11,fontWeight:600,textTransform:“uppercase”,letterSpacing:1}}>{user?.role||“merchandiser”}</div>
+</div>
+<div className=“fu” style={{animationDelay:”.1s”}}>
+<div style={{background:T.surface,borderRadius:14,border:`1px solid ${T.brd}`,overflow:“hidden”}}>
+{[{l:“Rôle”,v:user?.role||”—”},{l:“Région”,v:user?.region||“National”},{l:“Version”,v:“1.0.0”}].map((item,i)=>
+<div key={i} style={{display:“flex”,justifyContent:“space-between”,padding:“14px 16px”,borderBottom:i<2?`1px solid ${T.brd}`:“none”}}>
+<span style={{fontSize:13,color:T.sec}}>{item.l}</span>
+<span style={{fontSize:13,fontWeight:600,fontFamily:”‘JetBrains Mono’”}}>{item.v}</span>
+</div>)}
+</div>
+<button onClick={onLogout} style={{width:“100%”,marginTop:20,padding:14,borderRadius:12,border:`1px solid ${T.danger}30`,background:”#FEF2F2”,color:T.danger,fontSize:14,fontWeight:600,cursor:“pointer”,display:“flex”,alignItems:“center”,justifyContent:“center”,gap:8}}>
+{IC.logout} Se déconnecter</button>
+</div>
+<div style={{textAlign:“center”,marginTop:30,fontSize:10,color:T.mut,fontFamily:”‘JetBrains Mono’”}}>ShelfScan Pro v1.0.0 · Dislog Group</div>
+
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById(“root”)).render(<App/>);
+</script>
+
+</body>
+</html>
